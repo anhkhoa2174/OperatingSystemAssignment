@@ -1,0 +1,25 @@
+struct pcb_t * proc = NULL;
+         if (empty(q)) 
+         {
+         	proc = NULL;
+         }
+         else 
+         {
+         	int max = 0;
+         	uint32_t priority_max = q->proc[0]->priority;
+         	for (int i = 0; i < q->size; i++)
+         	{
+         		if (q->proc[i]->priority > priority_max)
+         		{
+         			priority_max = q->proc[i]->priority;
+         			max = i;
+         		}
+         	}
+         	proc = q->proc[max];
+         	for (int i = max; i < q->size - 1; i++)
+         	{
+         		q->proc[i] = q->proc[i + 1];
+         	}
+         	q->size--;
+         }
+	return proc;
