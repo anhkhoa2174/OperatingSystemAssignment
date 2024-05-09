@@ -51,44 +51,42 @@ void resetSlot() { //OUR FUNCTION
 		mlq_ready_queue[i].slot = MAX_PRIO - i;
 	}
 }
+struct pcb_t * get_mlq_proc_recursive(int milestone) {
+    // Lock the queue to protect it
+    pthread_mutex_lock(&queue_lock);
+
+    // Check if the queue is empty
+    if (queue_empty() == 1) {
+        pthread_mutex_unlock(&queue_lock);
+        return NULL;
+    }
+
+    // Check if the milestone exceeds the maximum priority
+    if (milestone >= MAX_PRIO) {
+        resetSlot();
+        milestone = 0;
+    }
+
+    // Check if the current priority level has processes
+    int flag = empty(&mlq_ready_queue[milestone]);
+    if (flag) {
+        // If the current priority level is empty, continue to the next level
+        pthread_mutex_unlock(&queue_lock);
+        return get_mlq_proc_recursive(milestone + 1);
+    }
+
+    // Dequeue a process from the current priority level
+    struct pcb_t * proc = dequeue(&mlq_ready_queue[milestone]);
+    mlq_ready_queue[milestone].slot--;
+
+    // Unlock the queue and return the dequeued process
+    pthread_mutex_unlock(&queue_lock);
+    return proc;
+}
+
+// Wrapper function to call get_mlq_proc_recursive with initial milestone
 struct pcb_t * get_mlq_proc(void) {
-	struct pcb_t * proc = NULL;
-	/*TODO: get a process from PRIORITY [ready_queue].
-	 * Remember to use lock to protect the queue.
-	 */
-	if (queue_empty() == 1) 
-	return NULL;
-	int milestone= -1;
-	
-	for (milestone = 0; milestone < MAX_PRIO; milestone++){
-		pthread_mutex_lock(&queue_lock);
-		int flag = empty(&mlq_ready_queue[milestone]);
-		if (flag) {
-			if (milestone == MAX_PRIO - 1) resetSlot();
-			pthread_mutex_unlock(&queue_lock);
-			//printf("1\n");
-			continue;
-		} 
-		else pthread_mutex_unlock(&queue_lock);
-		if (mlq_ready_queue[milestone].slot > 0) {
-			//printf("2\n");
-			pthread_mutex_lock(&queue_lock);
-			proc = dequeue(&mlq_ready_queue[milestone]);
-			mlq_ready_queue[milestone].slot--;
-			pthread_mutex_unlock(&queue_lock);
-			break;
-		} else {
-			if(milestone == MAX_PRIO - 1) {
-			//printf("3\n");
-			pthread_mutex_lock(&queue_lock);
-			resetSlot();
-			milestone = 0;
-			pthread_mutex_unlock(&queue_lock);
-			}
-		}
-	}
-	
-	return proc;
+    return get_mlq_proc_recursive(0);
 }
 
 void put_mlq_proc(struct pcb_t * proc) {
