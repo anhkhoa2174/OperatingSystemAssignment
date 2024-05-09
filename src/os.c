@@ -103,6 +103,45 @@ static void * cpu_routine(void * args) {
 	pthread_exit(NULL);
 }
 
+// static void * ld_routine(void * args) {
+// #ifdef MM_PAGING
+// 	struct memphy_struct* mram = ((struct mmpaging_ld_args *)args)->mram;
+// 	struct memphy_struct** mswp = ((struct mmpaging_ld_args *)args)->mswp;
+// 	struct memphy_struct* active_mswp = ((struct mmpaging_ld_args *)args)->active_mswp;
+// 	struct timer_id_t * timer_id = ((struct mmpaging_ld_args *)args)->timer_id;
+// #else
+// 	struct timer_id_t * timer_id = (struct timer_id_t*)args;
+// #endif
+// 	int i = 0;
+// 	printf("ld_routine\n");
+// 	while (i < num_processes) {
+// 		struct pcb_t * proc = load(ld_processes.path[i]);
+// #ifdef MLQ_SCHED
+// 		proc->prio = ld_processes.prio[i];
+// #endif
+// 		while (current_time() < ld_processes.start_time[i]) {
+// 			next_slot(timer_id);
+// 		}
+// #ifdef MM_PAGING
+// 		proc->mm = malloc(sizeof(struct mm_struct));
+// 		init_mm(proc->mm, proc);
+// 		proc->mram = mram;
+// 		proc->mswp = mswp;
+// 		proc->active_mswp = active_mswp;
+// #endif
+// 		printf("\tLoaded a process at %s, PID: %d PRIO: %ld\n",
+// 			ld_processes.path[i], proc->pid, ld_processes.prio[i]);
+// 		add_proc(proc);
+// 		free(ld_processes.path[i]);
+// 		i++;
+// 		next_slot(timer_id);
+// 	}
+// 	free(ld_processes.path);
+// 	free(ld_processes.start_time);
+// 	done = 1;
+// 	detach_event(timer_id);
+// 	pthread_exit(NULL);
+// }
 static void * ld_routine(void * args) {
 #ifdef MM_PAGING
 	struct memphy_struct* mram = ((struct mmpaging_ld_args *)args)->mram;
@@ -114,6 +153,27 @@ static void * ld_routine(void * args) {
 #endif
 	int i = 0;
 	printf("ld_routine\n");
+	
+	// Sort the ld_processes.start_time array in ascending order
+	for (int j = 0; j < num_processes - 1; j++) {
+		for (int k = 0; k < num_processes - j - 1; k++) {
+			if (ld_processes.start_time[k] > ld_processes.start_time[k + 1]) {
+				long temp_time = ld_processes.start_time[k];
+				ld_processes.start_time[k] = ld_processes.start_time[k + 1];
+				ld_processes.start_time[k + 1] = temp_time;
+				
+				// Swap corresponding paths and priorities
+				char *temp_path = ld_processes.path[k];
+				ld_processes.path[k] = ld_processes.path[k + 1];
+				ld_processes.path[k + 1] = temp_path;
+				
+				long temp_prio = ld_processes.prio[k];
+				ld_processes.prio[k] = ld_processes.prio[k + 1];
+				ld_processes.prio[k + 1] = temp_prio;
+			}
+		}
+	}
+	
 	while (i < num_processes) {
 		struct pcb_t * proc = load(ld_processes.path[i]);
 #ifdef MLQ_SCHED
@@ -142,7 +202,6 @@ static void * ld_routine(void * args) {
 	detach_event(timer_id);
 	pthread_exit(NULL);
 }
-
 static void read_config(const char * path) {
 	FILE * file;
 	if ((file = fopen(path, "r")) == NULL) {
