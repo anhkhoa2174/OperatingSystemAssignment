@@ -9,6 +9,7 @@ static struct queue_t ready_queue;
 static struct queue_t run_queue;
 static pthread_mutex_t queue_lock;
 
+int i = 0;
 #ifdef MLQ_SCHED
 static struct queue_t mlq_ready_queue[MAX_PRIO];
 #endif
@@ -64,6 +65,7 @@ struct pcb_t * get_mlq_proc_recursive(int milestone) {
     // Check if the milestone exceeds the maximum priority
     if (milestone >= MAX_PRIO) {
         resetSlot();
+        i = 0;
         milestone = 0;
     }
 
@@ -81,12 +83,14 @@ struct pcb_t * get_mlq_proc_recursive(int milestone) {
 
     // Unlock the queue and return the dequeued process
     pthread_mutex_unlock(&queue_lock);
+    i = milestone;
     return proc;
 }
 
 // Wrapper function to call get_mlq_proc_recursive with initial milestone
 struct pcb_t * get_mlq_proc(void) {
-    return get_mlq_proc_recursive(0);
+    if(mlq_ready_queue[i].slot>0) return get_mlq_proc_recursive(i);
+    else return  get_mlq_proc_recursive(i+1);
 }
 
 void put_mlq_proc(struct pcb_t * proc) {
